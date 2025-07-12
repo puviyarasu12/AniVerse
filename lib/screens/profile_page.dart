@@ -54,7 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
               leading: const Icon(Icons.favorite, color: Colors.deepPurpleAccent),
               title: const Text("My Watchlist", style: TextStyle(color: Colors.white)),
               onTap: () {
-
+                       Navigator.push(context, MaterialPageRoute(builder: (_)=> const WatchlistPage()),);
               },
             ),
             ListTile(

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/anime.dart';
 import '../api_service.dart';
 import 'profile_page.dart';
-import 'animenews.dart';
+import 'drawer.dart';
+import 'animewatchlist.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,6 +35,7 @@ class _HomePageState extends State<HomePage> {
       final seasonal = await ApiService.fetchSeasonalAnime();
       final manga = await ApiService.fetchTopManga();
       final characters = await ApiService.fetchTopCharacters();
+      final news = await ApiNews.fetchAnimeNews();
     // Example anime ID
 
       setState(() {
@@ -41,6 +43,11 @@ class _HomePageState extends State<HomePage> {
         seasonalAnime = seasonal;
         topManga = manga;
         topCharacters = characters;
+        topNews = news.map((article) => {
+          'title': article.title,
+          'excerpt': article.description,
+          'images': {'jpg': {'image_url': article.urlToImage}},
+        }).toList();
         isLoading = false;
       });
     } catch (e) {
@@ -64,16 +71,20 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const CustomDrawer(),
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.deepPurpleAccent,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.list),
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoriesPage()));
-          },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
         ),
+
         title: const Text("AniVerse", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
@@ -155,7 +166,7 @@ class _HomePageState extends State<HomePage> {
             GridView.builder(
               shrinkWrap: true,
               physics: const ClampingScrollPhysics(),
-              itemCount: topManga.length,
+              itemCount: 10,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 0.8,
@@ -202,82 +213,45 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Anime News", style: sectionTitleStyle),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AnimeNewsPage()));
-                  },
-                  child: const Text("See All", style: TextStyle(color: Colors.deepPurpleAccent)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Column(
-              children: topNews.take(3).map((news) {
-                final title = news['title'] ?? 'No title';
-                final image = news['images']?['jpg']?['image_url'] ?? '';
-                final excerpt = news['excerpt'] ?? '';
-                return Card(
-                  color: Colors.white10,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: image.isNotEmpty ? Image.network(image, width: 50, height: 50, fit: BoxFit.cover) : null,
-                    title: Text(title, style: const TextStyle(color: Colors.white)),
-                    subtitle: Text(excerpt, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70)),
-                    onTap: () {
-                      // Optional: open full news
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Random anime logic
-                },
-                icon: const Icon(Icons.shuffle),
-                label: const Text("Random Anime"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurpleAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
+
   Widget animeCard(Anime anime) {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        image: DecorationImage(
-          image: NetworkImage(anime.imageUrl),
-          fit: BoxFit.cover,
-        ),
-      ),
-      alignment: Alignment.bottomCenter,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AnimeDetailsPage(anime: anime),
+          ),
+        );
+      },
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(4),
-        color: Colors.black54,
-        child: Text(
-          anime.title,
-          style: const TextStyle(color: Colors.white),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+        width: 120,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          image: DecorationImage(
+            image: NetworkImage(anime.imageUrl),
+            fit: BoxFit.cover,
+          ),
+        ),
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(4),
+          color: Colors.black54,
+          child: Text(
+            anime.title,
+            style: const TextStyle(color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
@@ -289,60 +263,3 @@ const sectionTitleStyle = TextStyle(
   fontWeight: FontWeight.bold,
   color: Colors.white,
 );
-
-class CategoriesPage extends StatelessWidget {
-  const CategoriesPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = [
-      "Action",
-      "Romance",
-      "Comedy",
-      "Drama",
-      "Fantasy",
-      "Horror",
-      "Sci-Fi",
-      "Slice of Life",
-      "Sports",
-      "Mystery"
-    ];
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurpleAccent,
-        title: const Text("Categories"),
-      ),
-      backgroundColor: Colors.black,
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: GridView.builder(
-          itemCount: categories.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 2.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemBuilder: (context, index) {
-            return ElevatedButton(
-              onPressed: () {
-                print('${categories[index]} selected');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white12,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                categories[index],
-                style: const TextStyle(color: Colors.white),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}

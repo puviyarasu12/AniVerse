@@ -1,9 +1,18 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'models/anime.dart';
 
 class ApiService {
   static const String baseUrl = 'https://api.jikan.moe/v4';
+  static Map<String, dynamic> safeJsonDecode(String body) {
+    try {
+      return jsonDecode(body);
+    } catch (e) {
+      throw Exception('Invalid JSON response');
+    }
+  }
+
 
   static Future<http.Response> _makeRequest(Uri uri) async {
     try {
@@ -18,17 +27,36 @@ class ApiService {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> fetchAnimeNews(int malId) async {
-    final response = await _makeRequest(Uri.parse('$baseUrl/anime/$malId/news'));
+  static Future<Anime> fetchAnimeById(int malId) async {
+    final response = await http.get(Uri.parse('$baseUrl/anime/$malId'));
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data is Map && data['data'] is List) {
-        return (data['data'] as List).cast<Map<String, dynamic>>();
+      final data = json.decode(response.body);
+      return Anime.fromJson(data['data']);
+    } else {
+      throw Exception('Failed to load anime by ID');
+    }
+  }
+
+
+  static Future<Anime> fetchRandomAnime() async {
+    final randomPage = Random().nextInt(20) + 1; // Pages 1 to 20
+    final url = Uri.parse('https://api.jikan.moe/v4/top/anime?page=$randomPage');
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final animeList = (json['data'] as List)
+          .map((e) => Anime.fromJson(e))
+          .toList();
+
+      if (animeList.isNotEmpty) {
+        return animeList[Random().nextInt(animeList.length)];
       } else {
-        throw Exception('Invalid API response format');
+        throw Exception("Anime list is empty");
       }
     } else {
-      throw Exception('Failed to load anime news: ${response.statusCode}');
+      throw Exception("Failed to fetch anime: ${response.statusCode}");
     }
   }
 
@@ -97,7 +125,9 @@ class ApiService {
       } else {
         throw Exception('Invalid API response format');
       }
-    } else {
+
+
+  safeJsonDecode(String body) {} } else {
       throw Exception('Failed to search anime: ${response.statusCode}');
     }
   }
@@ -112,7 +142,7 @@ class ApiNews {
       'q': 'anime',
       'language': 'en',
       'sortBy': 'publishedAt',
-      'pageSize': '20', // Optional: Adjust page size if needed
+      'pageSize': '100',
       'page': '$page',
       'apiKey': _apiKey,
     });
@@ -128,9 +158,13 @@ class ApiNews {
         if (data['articles'] is List) {
           final articles = (data['articles'] as List)
               .map((json) => NewsArticle.fromJson(json))
-              .toList();
+              .where((article) {
+            final title = article.title.toLowerCase();
+            final description = article.description.toLowerCase();
+            return title.contains('anime') || description.contains('anime');
+          }).toList();
 
-          print('Fetched ${articles.length} articles in ${stopwatch.elapsedMilliseconds}ms');
+          print('Filtered ${articles.length} anime articles in ${stopwatch.elapsedMilliseconds}ms');
           return articles;
         } else {
           throw Exception('Unexpected response format: articles field is not a list');
@@ -144,4 +178,5 @@ class ApiNews {
     }
   }
 }
+
 
